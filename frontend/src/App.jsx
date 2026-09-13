@@ -18,9 +18,9 @@ import {
   SustainabilityTab,
   FarmSettingsTab
 } from './components/tabs/PrototypeTabs';
-import { getStoredUser, saveStoredUser, computeInitials } from './utils/userStore';
+import { getStoredUser, saveStoredUser, computeInitials, incrementUserScanCount, saveUserScan, getUserScans, getLatestUserScan } from './utils/userStore';
 import { ROUTES, TAB_TO_PATH, PATH_TO_TAB } from './constants/routes';
-import { getMeApi, logoutApi } from './services/api';
+import { getMeApi, logoutApi, updateProfileApi, incrementScansApi } from './services/api';
 
 function MainLayout({ children, currentUser, darkMode, onToggleTheme, onLogout }) {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -69,7 +69,7 @@ export default function App() {
 
   const [pendingPrompt, setPendingPrompt] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => getStoredUser());
-  const [latestScanResult, setLatestScanResult] = useState(null);
+  const [latestScanResult, setLatestScanResult] = useState(() => getLatestUserScan(getStoredUser()?.email));
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('agrismart_theme');
@@ -84,13 +84,35 @@ export default function App() {
       try {
         const me = await getMeApi();
         if (me) {
+          const localUser = getStoredUser();
+          const localScans = getUserScans(me.email);
+          const backendScans = me.total_scans ?? 0;
+          const storedScans = Number(localUser?.totalScans ?? localUser?.total_scans ?? 0);
+          const count = Math.max(backendScans, localScans.length, storedScans);
+
           const formattedUser = {
+            totalScans: count,
+            total_scans: count,
+            accuracyBenchmark: count > 0 ? (localUser?.accuracyBenchmark && localUser.accuracyBenchmark !== "0%" ? localUser.accuracyBenchmark : "94.8%") : "0%",
+            activePlots: count > 0 ? (localUser?.activePlots && localUser.activePlots !== "0 Plots" ? localUser.activePlots : "4 Plots") : "0 Plots",
+            ...localUser,
             ...me,
+            totalScans: count,
+            total_scans: count,
             initials: computeInitials(me.name),
             isLoggedIn: true,
           };
           setCurrentUser(formattedUser);
           saveStoredUser(formattedUser);
+
+          if (count > backendScans) {
+            updateProfileApi({ total_scans: count }).catch(() => {});
+          }
+
+          const savedLatest = getLatestUserScan(me.email);
+          if (savedLatest) {
+            setLatestScanResult(savedLatest);
+          }
         }
       } catch (err) {
         console.warn("Session verification note:", err);
@@ -124,7 +146,19 @@ export default function App() {
   };
 
   const handleCompleteScan = (scanData) => {
-    if (scanData) setLatestScanResult(scanData);
+    if (scanData) {
+      setLatestScanResult(scanData);
+      if (currentUser?.email) {
+        saveUserScan(currentUser.email, scanData);
+      }
+      const updatedUser = incrementUserScanCount(currentUser, scanData);
+      setCurrentUser(updatedUser);
+      incrementScansApi().catch(() => {
+        if (updatedUser?.totalScans) {
+          updateProfileApi({ total_scans: updatedUser.totalScans }).catch(() => {});
+        }
+      });
+    }
     navigate(ROUTES.RESULT);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -135,18 +169,31 @@ export default function App() {
   };
 
   const handleLoginSuccess = (user) => {
+    const localScans = getUserScans(user?.email);
+    const backendScans = Number(user?.totalScans ?? user?.total_scans ?? 0);
+    const scanCount = Math.max(backendScans, localScans.length);
     const formatted = {
+      totalScans: scanCount,
+      total_scans: scanCount,
+      accuracyBenchmark: user?.accuracyBenchmark || (scanCount > 0 ? "94.8%" : "0%"),
+      activePlots: user?.activePlots || (scanCount > 0 ? "4 Plots" : "0 Plots"),
       ...user,
       initials: computeInitials(user.name),
       isLoggedIn: true,
     };
     setCurrentUser(formatted);
     saveStoredUser(formatted);
+    const savedLatest = getLatestUserScan(user?.email);
+    if (savedLatest) setLatestScanResult(savedLatest);
     navigate(ROUTES.DASHBOARD);
   };
 
   const handleRegisterSuccess = (user) => {
     const formatted = {
+      totalScans: 0,
+      total_scans: 0,
+      accuracyBenchmark: "0%",
+      activePlots: "0 Plots",
       ...user,
       initials: computeInitials(user.name),
       isLoggedIn: true,
@@ -212,9 +259,28 @@ export default function App() {
         element={
           <MainLayout {...layoutProps}>
             <DashboardTab
+              user={currentUser}
               onLaunchPrompt={handleLaunchPrompt}
               onNavigate={handleNavigate}
-              onShowResult={(result) => handleCompleteScan(result)}
+              onScanComplete={(scanData) => {
+                if (scanData) {
+                  setLatestScanResult(scanData);
+                  if (currentUser?.email) {
+                    saveUserScan(currentUser.email, scanData);
+                  }
+                  const updatedUser = incrementUserScanCount(currentUser, scanData);
+                  setCurrentUser(updatedUser);
+                  incrementScansApi().catch(() => {
+                    if (updatedUser?.totalScans) {
+                      updateProfileApi({ total_scans: updatedUser.totalScans }).catch(() => {});
+                    }
+                  });
+                }
+              }}
+              onShowResult={(result) => {
+                if (result) setLatestScanResult(result);
+                navigate(ROUTES.RESULT);
+              }}
             />
           </MainLayout>
         }
@@ -239,7 +305,14 @@ export default function App() {
         path={ROUTES.HISTORY}
         element={
           <MainLayout {...layoutProps}>
-            <HistoryTab onShowResult={(result) => handleCompleteScan(result)} />
+            <HistoryTab
+              user={currentUser}
+              onNavigate={handleNavigate}
+              onShowResult={(result) => {
+                setLatestScanResult(result);
+                navigate(ROUTES.RESULT);
+              }}
+            />
           </MainLayout>
         }
       />

@@ -3,11 +3,11 @@ import { DEFAULT_LEAF_IMAGE } from '../../constants/data';
 import { predictDisease } from '../../services/api';
 
 export default function DetectionTab({ onCompleteScan }) {
-  const [previewImg, setPreviewImg] = useState(DEFAULT_LEAF_IMAGE);
-  const [filename, setFilename] = useState("tomato_early_blight_sample.jpg");
+  const [previewImg, setPreviewImg] = useState(null);
+  const [filename, setFilename] = useState("");
   const [crop, setCrop] = useState("tomato");
   const [growthStage, setGrowthStage] = useState("vegetative");
-  const [notes, setNotes] = useState("Lower foliage spotted with concentric brown rings.");
+  const [notes, setNotes] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);

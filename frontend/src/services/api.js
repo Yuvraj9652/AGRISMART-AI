@@ -133,6 +133,21 @@ export async function updateProfileApi(profileData) {
   return data;
 }
 
+export async function incrementScansApi() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/increment-scans`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn("Increment scans API error:", err);
+  }
+  return null;
+}
+
 // -------------------------------------------------------------
 // 2. CORE & BONUS AGRICULTURE ENDPOINTS
 // -------------------------------------------------------------

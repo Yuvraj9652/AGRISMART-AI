@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { computeInitials, saveStoredUser, DEFAULT_USER } from '../../utils/userStore';
+import { computeInitials, saveStoredUser, getUserScans } from '../../utils/userStore';
 import { updateProfileApi } from '../../services/api';
 
 export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }) {
@@ -23,9 +23,15 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
   const handleSave = async (e) => {
     e.preventDefault();
     const initials = computeInitials(formData.name);
+    const currentCount = Math.max(
+      Number(user?.totalScans ?? user?.total_scans ?? 0),
+      getUserScans(user?.email).length
+    );
     let updated = {
       ...user,
       ...formData,
+      totalScans: currentCount,
+      total_scans: currentCount,
       initials,
       isLoggedIn: true
     };
@@ -38,8 +44,9 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
         location: formData.location,
         phone: formData.phone,
         bio: formData.bio,
+        total_scans: currentCount,
       });
-      updated = { ...updated, ...serverUser, initials };
+      updated = { ...updated, ...serverUser, totalScans: currentCount, total_scans: currentCount, initials };
     } catch (err) {
       console.warn("Backend profile sync note:", err.message);
     }
@@ -50,23 +57,13 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
     setTimeout(() => setSavedSuccess(false), 3500);
   };
 
-  const handleResetDefaults = () => {
-    saveStoredUser(DEFAULT_USER);
-    onUpdateUser(DEFAULT_USER);
-    setFormData({
-      name: DEFAULT_USER.name,
-      email: DEFAULT_USER.email,
-      role: DEFAULT_USER.role,
-      farmName: DEFAULT_USER.farmName,
-      location: DEFAULT_USER.location,
-      phone: DEFAULT_USER.phone,
-      bio: DEFAULT_USER.bio,
-    });
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3500);
-  };
-
   const currentInitials = computeInitials(formData.name) || user?.initials || "HP";
+  const totalScans = Math.max(
+    Number(user?.totalScans ?? user?.total_scans ?? 0),
+    getUserScans(user?.email).length
+  );
+  const accuracyBenchmark = user?.accuracyBenchmark ?? (totalScans > 0 ? "94.8%" : "0%");
+  const activePlots = user?.activePlots ?? (totalScans > 0 ? "4 Plots" : "0 Plots");
 
   return (
     <section className="tab-content space-y-6 max-w-4xl mx-auto" id="tab-Profile">
@@ -110,17 +107,26 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
               <h2 className="text-headline-md font-headline-md font-extrabold text-on-surface dark:text-[#ecfdf5]">
                 {formData.name || "AgriSmart User"}
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#ecfdf5] dark:bg-emerald-950/70 border border-[#10b981]/50 text-[#065f46] dark:text-emerald-300 shadow-xs">
-                {formData.role || "Evaluator"}
-              </span>
+              {formData.role && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#ecfdf5] dark:bg-emerald-950/70 border border-[#10b981]/50 text-[#065f46] dark:text-emerald-300 shadow-xs">
+                  {formData.role}
+                </span>
+              )}
             </div>
             <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70">
               {formData.email}
             </p>
-            <p className="text-xs text-on-surface-variant/80 dark:text-emerald-300/60 flex items-center gap-1.5 pt-0.5">
-              <span className="material-symbols-outlined text-sm text-primary dark:text-primary-fixed" data-icon="location_on">location_on</span>
-              <span>{formData.farmName} · {formData.location}</span>
-            </p>
+            {(formData.farmName || formData.location) ? (
+              <p className="text-xs text-on-surface-variant/80 dark:text-emerald-300/60 flex items-center gap-1.5 pt-0.5">
+                <span className="material-symbols-outlined text-sm text-primary dark:text-primary-fixed" data-icon="location_on">location_on</span>
+                <span>{[formData.farmName, formData.location].filter(Boolean).join(' · ')}</span>
+              </p>
+            ) : (
+              <p className="text-xs text-on-surface-variant/60 dark:text-emerald-300/50 flex items-center gap-1.5 pt-0.5 italic">
+                <span className="material-symbols-outlined text-xs text-on-surface-variant/50" data-icon="edit">edit</span>
+                <span>Complete your profile below</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -141,24 +147,30 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
             <span className="text-xs text-on-surface-variant dark:text-emerald-300/70 font-semibold">Total Scans Executed</span>
             <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-lg" data-icon="document_scanner">document_scanner</span>
           </div>
-          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1">28</p>
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400">100% telemetry cached</span>
+          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1" id="profile-total-scans">{totalScans}</p>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+            {totalScans > 0 ? "100% telemetry cached" : "No scans executed yet"}
+          </span>
         </div>
         <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-[#112117] border border-[#14532d]/15 dark:border-emerald-800/30 shadow-xs hover-lift transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs text-on-surface-variant dark:text-emerald-300/70 font-semibold">Foliar Accuracy Benchmark</span>
             <span className="material-symbols-outlined text-emerald-600 text-lg" data-icon="auto_awesome">auto_awesome</span>
           </div>
-          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1">94.8%</p>
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Exceeds 90% target</span>
+          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1" id="profile-accuracy-benchmark">{accuracyBenchmark}</p>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+            {totalScans > 0 ? "Exceeds 90% target" : "Awaiting first scan benchmark"}
+          </span>
         </div>
         <div className="p-4 rounded-2xl bg-surface-container-lowest dark:bg-[#112117] border border-[#14532d]/15 dark:border-emerald-800/30 shadow-xs hover-lift transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs text-on-surface-variant dark:text-emerald-300/70 font-semibold">Active Agro Sectors</span>
             <span className="material-symbols-outlined text-amber-500 text-lg" data-icon="yard">yard</span>
           </div>
-          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1">4 Plots</p>
-          <span className="text-[11px] text-stone-500 dark:text-emerald-300/60">Greenhouses 4A - 4D</span>
+          <p className="text-2xl font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1" id="profile-active-plots">{activePlots}</p>
+          <span className="text-[11px] text-stone-500 dark:text-emerald-300/60">
+            {totalScans > 0 ? (formData.farmName ? `${formData.farmName}` : "Greenhouses 4A - 4D") : "No active sectors logged"}
+          </span>
         </div>
       </div>
 
@@ -328,15 +340,7 @@ export default function ProfilePage({ user, onUpdateUser, onLogout, onNavigate }
           </div>
 
           {/* Actions Button Row */}
-          <div className="pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/20 dark:border-emerald-900/30">
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="hover-lift active:scale-95 px-4 py-2.5 rounded-xl border border-outline-variant/40 dark:border-emerald-800/40 text-on-surface-variant dark:text-emerald-300/80 hover:bg-surface-container dark:hover:bg-[#162a1e] text-label-md font-label-md transition-all shadow-xs"
-            >
-              Reset to Demo Defaults
-            </button>
-
+          <div className="pt-3 flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant/20 dark:border-emerald-900/30">
             <button
               type="submit"
               className="hover-lift active:scale-95 px-7 py-3 rounded-2xl bg-gradient-to-r from-primary-container to-[#14532d] hover:from-[#14532d] hover:to-[#0f3d21] text-white font-label-lg shadow-[0_4px_16px_rgba(16,185,129,0.3)] flex items-center gap-2 transition-all"

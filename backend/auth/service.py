@@ -25,8 +25,12 @@ def create_local_user(db: Session, user_in: UserRegister) -> User:
         name=user_in.name.strip(),
         password_hash=hashed_pwd,
         auth_provider="local",
-        role=user_in.role or "Agronomist",
-        farm_name=user_in.farm_name or "AgriSmart Farm",
+        role=user_in.role or "",
+        farm_name=user_in.farm_name or "",
+        location="",
+        phone="",
+        bio="",
+        total_scans=0,
         is_active=True
     )
     db.add(user)
@@ -80,8 +84,12 @@ def authenticate_or_create_google_user(db: Session, google_info: Dict[str, Any])
         google_sub=g_sub,
         password_hash=None,
         auth_provider="google",
-        role="Agronomist",
-        farm_name="AgriSmart Farm",
+        role="",
+        farm_name="",
+        location="",
+        phone="",
+        bio="",
+        total_scans=0,
         is_active=True
     )
     db.add(user)

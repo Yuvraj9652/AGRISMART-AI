@@ -1,17 +1,37 @@
-import React, { useState, useRef } from 'react';
-import { DEFAULT_LEAF_IMAGE, HERO_BG_IMAGE, SAMPLE_SCANS } from '../../constants/data';
+import React, { useState, useRef, useEffect } from 'react';
+import { HERO_BG_IMAGE } from '../../constants/data';
 import { predictDisease } from '../../services/api';
+import { getUserScans, saveUserScan, getLatestUserScan } from '../../utils/userStore';
 
-export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult }) {
-  const [studioImage, setStudioImage] = useState(DEFAULT_LEAF_IMAGE);
-  const [studioFilename, setStudioFilename] = useState("tomato_early_blight_sample.jpg");
-  const [studioCrop, setStudioCrop] = useState("tomato");
-  const [studioGrowth, setStudioGrowth] = useState("fruiting");
-  const [studioNotes, setStudioNotes] = useState("Concentric target spots on mid-tier leaflets.");
+export default function DashboardTab({ user, onNavigate, onLaunchPrompt, onShowResult, onScanComplete }) {
+  const initialLatest = getLatestUserScan(user?.email);
+
+  const [studioImage, setStudioImage] = useState(() => initialLatest?.image || null);
+  const [studioFilename, setStudioFilename] = useState(() => initialLatest?.filename || (initialLatest ? `${initialLatest.crop || 'crop'}_specimen.jpg` : ""));
+  const [studioCrop, setStudioCrop] = useState(() => initialLatest?.crop || "tomato");
+  const [studioGrowth, setStudioGrowth] = useState(() => initialLatest?.growthStage || "vegetative");
+  const [studioNotes, setStudioNotes] = useState(() => initialLatest?.notes || "");
   const [isStudioAnalyzing, setIsStudioAnalyzing] = useState(false);
   const [studioHighlighted, setStudioHighlighted] = useState(false);
   const [savedScanToast, setSavedScanToast] = useState(false);
-  const [studioResult, setStudioResult] = useState(null);
+  const [studioResult, setStudioResult] = useState(() => initialLatest || null);
+  const [recentScans, setRecentScans] = useState(() => getUserScans(user?.email).slice(0, 3));
+
+  useEffect(() => {
+    const latest = getLatestUserScan(user?.email);
+    setRecentScans(getUserScans(user?.email).slice(0, 3));
+    if (latest && !studioResult) {
+      setStudioResult(latest);
+      if (latest.image && !studioImage) setStudioImage(latest.image);
+      if (latest.crop) setStudioCrop(latest.crop);
+      if (latest.growthStage) setStudioGrowth(latest.growthStage);
+    }
+  }, [user?.email]);
+
+  const totalScans = Math.max(
+    Number(user?.totalScans ?? user?.total_scans ?? 0),
+    getUserScans(user?.email).length
+  );
 
   const fileInputRef = useRef(null);
 
@@ -29,12 +49,17 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
       reader.onload = (evt) => {
         setStudioImage(evt.target.result);
         setStudioFilename(file.name);
+        setStudioResult(null);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleSaveDemoScan = () => {
+    if (studioResult && user?.email) {
+      saveUserScan(user.email, { ...studioResult, image: studioImage, crop: studioCrop });
+      setRecentScans(getUserScans(user.email).slice(0, 3));
+    }
     setSavedScanToast(true);
     setTimeout(() => setSavedScanToast(false), 3000);
   };
@@ -56,27 +81,45 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
       reader.onload = (evt) => {
         setStudioImage(evt.target.result);
         setStudioFilename(file.name);
+        setStudioResult(null);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const resetStudioDemo = () => {
-    setStudioImage(DEFAULT_LEAF_IMAGE);
-    setStudioFilename("tomato_early_blight_sample.jpg");
+    setStudioImage(null);
+    setStudioFilename("");
     setStudioCrop("tomato");
-    setStudioGrowth("fruiting");
-    setStudioNotes("Concentric target spots on mid-tier leaflets.");
+    setStudioGrowth("vegetative");
+    setStudioNotes("");
     setStudioResult(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const runStudioPrediction = async () => {
+    if (!studioImage) {
+      fileInputRef.current?.click();
+      return;
+    }
     setIsStudioAnalyzing(true);
     try {
       const apiResult = await predictDisease(studioImage, studioCrop, studioGrowth, studioNotes);
       setIsStudioAnalyzing(false);
-      setStudioResult(apiResult);
+      const fullRecord = {
+        ...apiResult,
+        image: studioImage,
+        crop: studioCrop,
+        growthStage: studioGrowth,
+        notes: studioNotes
+      };
+      setStudioResult(fullRecord);
+      if (onScanComplete) {
+        onScanComplete(fullRecord);
+      } else if (user?.email) {
+        saveUserScan(user.email, fullRecord);
+      }
+      setRecentScans(getUserScans(user?.email).slice(0, 3));
       setStudioHighlighted(true);
       setTimeout(() => setStudioHighlighted(false), 1500);
     } catch (err) {
@@ -235,53 +278,74 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
                 <span className="text-label-xs text-on-surface-variant dark:text-emerald-300/80 bg-[#f4f7f4] dark:bg-[#15271c] px-2.5 py-1 rounded-md">JPG / PNG (max 10MB)</span>
               </div>
 
-              {/* Drag & Drop Zone with Holographic Laser HUD */}
+              {/* Drag & Drop Zone */}
               <div
                 className="border-2 border-dashed border-[#10b981] dark:border-emerald-600/60 bg-[#ecfdf5]/50 dark:bg-emerald-950/20 hover:bg-[#ecfdf5]/80 dark:hover:bg-emerald-950/40 rounded-2xl p-3 text-center transition-all relative group overflow-hidden"
                 onDragOver={handleStudioDragOver}
                 onDrop={handleStudioDrop}
               >
-                <div className="relative rounded-xl overflow-hidden bg-black/5 shadow-inner">
-                  <img
-                    alt="Macro leaf sample showing concentric brown spots"
-                    className="w-full h-56 object-cover rounded-lg transition-transform duration-500 group-hover:scale-[1.02]"
-                    id="studio-leaf-img"
-                    src={studioImage}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-90"></div>
-                  
-                  {/* Filename Badge */}
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs z-10">
-                    <span className="flex items-center gap-1 font-medium truncate">
-                      <span className="material-symbols-outlined text-emerald-400 text-sm" data-icon="check_circle">check_circle</span>
-                      <span id="studio-filename">{studioFilename}</span>
-                    </span>
+                {studioImage ? (
+                  <div className="relative rounded-xl overflow-hidden bg-black/5 shadow-inner">
+                    <img
+                      alt="Macro leaf sample"
+                      className="w-full h-56 object-cover rounded-lg transition-transform duration-500 group-hover:scale-[1.02]"
+                      id="studio-leaf-img"
+                      src={studioImage}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-90"></div>
+                    
+                    {/* Filename Badge */}
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs z-10">
+                      <span className="flex items-center gap-1 font-medium truncate">
+                        <span className="material-symbols-outlined text-emerald-400 text-sm" data-icon="check_circle">check_circle</span>
+                        <span id="studio-filename">{studioFilename || "specimen_image.jpg"}</span>
+                      </span>
+                      <button
+                        className="bg-white/20 hover:bg-white/40 text-white px-2.5 py-1 rounded-lg backdrop-blur-sm transition-all active:scale-95"
+                        onClick={() => fileInputRef.current?.click()}
+                        type="button"
+                      >
+                        Change image
+                      </button>
+                    </div>
+
+                    {/* Holographic HUD Laser Overlay during inference */}
+                    {isStudioAnalyzing && (
+                      <>
+                        <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px] pointer-events-none"></div>
+                        <div className="absolute inset-x-0 h-1.5 bg-gradient-to-r from-transparent via-[#22c55e] to-transparent shadow-[0_0_20px_#22c55e] animate-scanbeam z-20" id="studio-laser"></div>
+                        <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-emerald-400 z-20"></div>
+                        <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-emerald-400 z-20"></div>
+                        <div className="absolute bottom-10 left-3 w-6 h-6 border-b-2 border-l-2 border-emerald-400 z-20"></div>
+                        <div className="absolute bottom-10 right-3 w-6 h-6 border-b-2 border-r-2 border-emerald-400 z-20"></div>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                          <div className="w-12 h-12 rounded-full border border-emerald-400/60 border-dashed animate-spin"></div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className="h-56 rounded-xl border border-emerald-200 dark:border-emerald-800/40 bg-white/60 dark:bg-[#0c1811] flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-emerald-50/40 dark:hover:bg-[#122419] transition-all"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-primary dark:text-primary-fixed flex items-center justify-center mb-3 shadow-inner">
+                      <span className="material-symbols-outlined text-3xl" data-icon="add_photo_alternate">add_photo_alternate</span>
+                    </div>
+                    <p className="text-label-md font-label-md font-bold text-on-surface dark:text-[#ecfdf5]">
+                      Select or drop crop leaf photo
+                    </p>
+                    <p className="text-body-xs font-body-xs text-on-surface-variant dark:text-emerald-300/70 mt-1">
+                      JPG, PNG or WebP up to 10MB
+                    </p>
                     <button
-                      className="bg-white/20 hover:bg-white/40 text-white px-2.5 py-1 rounded-lg backdrop-blur-sm transition-all active:scale-95"
-                      onClick={() => fileInputRef.current?.click()}
                       type="button"
+                      className="mt-3 px-3.5 py-1.5 rounded-xl bg-primary-container text-white text-xs font-semibold shadow-xs hover:bg-[#14532d] transition-all"
                     >
-                      Replace image
+                      Browse Files
                     </button>
                   </div>
-
-                  {/* Holographic HUD Laser Overlay during inference */}
-                  {isStudioAnalyzing && (
-                    <>
-                      <div className="absolute inset-0 bg-emerald-500/10 backdrop-blur-[1px] pointer-events-none"></div>
-                      <div className="absolute inset-x-0 h-1.5 bg-gradient-to-r from-transparent via-[#22c55e] to-transparent shadow-[0_0_20px_#22c55e] animate-scanbeam z-20" id="studio-laser"></div>
-                      {/* Corner Target Reticles */}
-                      <div className="absolute top-3 left-3 w-6 h-6 border-t-2 border-l-2 border-emerald-400 z-20"></div>
-                      <div className="absolute top-3 right-3 w-6 h-6 border-t-2 border-r-2 border-emerald-400 z-20"></div>
-                      <div className="absolute bottom-10 left-3 w-6 h-6 border-b-2 border-l-2 border-emerald-400 z-20"></div>
-                      <div className="absolute bottom-10 right-3 w-6 h-6 border-b-2 border-r-2 border-emerald-400 z-20"></div>
-                      {/* Center Crosshair */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                        <div className="w-12 h-12 rounded-full border border-emerald-400/60 border-dashed animate-spin"></div>
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
                 <input
                   ref={fileInputRef}
                   accept="image/jpeg,image/png,image/webp"
@@ -378,80 +442,120 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
             }`}
             id="studio-result-card"
           >
-            <div className="space-y-4">
-              {/* Result Header & Badges */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/20 dark:border-emerald-900/30 pb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs uppercase font-bold tracking-wider text-on-surface-variant dark:text-emerald-300/70">Predicted Diagnosis</span>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#ecfdf5] dark:bg-emerald-950/70 text-primary dark:text-primary-fixed border border-primary/30 dark:border-emerald-700/50">
-                      Crop: {studioCrop.charAt(0).toUpperCase() + studioCrop.slice(1)}
-                    </span>
+            {studioResult ? (
+              <div className="space-y-4">
+                {/* Result Header & Badges */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/20 dark:border-emerald-900/30 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs uppercase font-bold tracking-wider text-on-surface-variant dark:text-emerald-300/70">Predicted Diagnosis</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#ecfdf5] dark:bg-emerald-950/70 text-primary dark:text-primary-fixed border border-primary/30 dark:border-emerald-700/50">
+                        Crop: {studioCrop.charAt(0).toUpperCase() + studioCrop.slice(1)}
+                      </span>
+                    </div>
+                    <h3 className="text-headline-md font-headline-md font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1">
+                      {studioResult.prediction || "Detected Foliar Anomaly"}
+                    </h3>
+                    <p className="text-xs italic text-on-surface-variant dark:text-emerald-300/70 font-mono">
+                      {studioResult.pathogen || "Neural Foliar Classifier"}
+                    </p>
                   </div>
-                  <h3 className="text-headline-md font-headline-md font-extrabold text-on-surface dark:text-[#ecfdf5] mt-1">
-                    Tomato Early Blight
+                  <div className="flex items-center gap-2 self-start sm:self-center">
+                    <div className="px-3.5 py-1.5 rounded-xl bg-[#fffbeb] dark:bg-amber-950/50 border border-[#f59e0b] dark:border-amber-600/60 text-[#92400e] dark:text-amber-300 text-label-md font-bold flex items-center gap-1.5 shadow-sm animate-pulse">
+                      <span className="material-symbols-outlined text-base" data-icon="check_circle">check_circle</span>
+                      <span>Diagnosis Completed</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Confidence & Severity Metrics Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="p-4 rounded-2xl bg-[#ecfdf5] dark:bg-[#152a1d] border border-[#10b981]/30 dark:border-emerald-700/40 hover-lift">
+                    <div className="flex items-center justify-between">
+                      <span className="text-label-sm font-label-sm font-semibold text-[#065f46] dark:text-emerald-300">Prediction Confidence</span>
+                      <span className="text-xs font-bold text-primary dark:text-primary-fixed bg-white dark:bg-[#0f1f15] px-2 py-0.5 rounded-md border border-primary/20 dark:border-emerald-700/40">Vision Classifier</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-headline-lg font-headline-lg font-extrabold text-primary dark:text-primary-fixed">
+                        {Math.round((studioResult.confidence || 0.91) * 100)}%
+                      </span>
+                      <span className="text-xs font-semibold text-[#065f46] dark:text-emerald-300">AI Prediction Confidence</span>
+                    </div>
+                    <div className="w-full bg-white dark:bg-[#0c1811] h-2.5 rounded-full mt-2.5 overflow-hidden border border-primary/10 dark:border-emerald-800/30">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-primary-container h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.round((studioResult.confidence || 0.91) * 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#fffbeb] dark:bg-amber-950/30 border border-[#f59e0b]/40 dark:border-amber-700/40 hover-lift">
+                    <div className="flex items-center justify-between">
+                      <span className="text-label-sm font-label-sm font-semibold text-[#92400e] dark:text-amber-300">Severity Stage</span>
+                      <span className="text-xs font-bold text-[#92400e] dark:text-amber-300 bg-white dark:bg-[#1a1103] px-2 py-0.5 rounded-md border border-[#f59e0b]/40 dark:border-amber-700/50">Foliar Lesions</span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-headline-lg font-headline-lg font-extrabold text-[#b45309] dark:text-amber-400">
+                        {studioResult.severity || "Moderate"}
+                      </span>
+                      <span className="text-xs font-semibold text-[#92400e] dark:text-amber-300">Assessed by model</span>
+                    </div>
+                    <div className="w-full bg-white dark:bg-[#1a1103] h-2.5 rounded-full mt-2.5 overflow-hidden border border-amber-200 dark:border-amber-800/40">
+                      <div className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all duration-1000" style={{ width: '60%' }}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommended Precautions List */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#f4f7f4] dark:bg-[#15271c] border border-[#14532d]/10 dark:border-emerald-800/30 space-y-3">
+                  <h4 className="text-label-md font-label-md font-bold text-on-surface dark:text-[#ecfdf5] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-lg" data-icon="checklist">checklist</span>
+                    <span>Recommended Precautions</span>
+                  </h4>
+                  <ul className="space-y-2.5 text-body-sm font-body-sm text-on-surface dark:text-emerald-100">
+                    {(studioResult.precautions || [
+                      "Remove visibly affected lower leaves near the base to prevent spore release.",
+                      "Avoid unnecessary overhead watering; switch strictly to drip delivery.",
+                      "Monitor nearby plants daily for early sign of foliar lesions.",
+                      "Consult local agricultural guidance if symptoms spread to upper canopy."
+                    ]).map((p, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 group/item">
+                        <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-base mt-0.5 flex-shrink-0 group-hover/item:scale-125 transition-transform" data-icon="check_circle">check_circle</span>
+                        <span>{p}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              /* Awaiting scan zero-state */
+              <div className="my-auto py-12 px-4 text-center space-y-5">
+                <div className="w-18 h-18 rounded-3xl bg-emerald-100/80 dark:bg-emerald-950/60 text-primary dark:text-primary-fixed flex items-center justify-center mx-auto shadow-inner ring-8 ring-emerald-50 dark:ring-emerald-900/20">
+                  <span className="material-symbols-outlined text-4xl text-primary dark:text-primary-fixed" data-icon="biotech">biotech</span>
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-bold uppercase tracking-wider mb-1">
+                    <span>Awaiting Specimen Analysis</span>
+                  </div>
+                  <h3 className="text-headline-md font-headline-md font-extrabold text-on-surface dark:text-[#ecfdf5]">
+                    No Active Diagnosis
                   </h3>
-                  <p className="text-xs italic text-on-surface-variant dark:text-emerald-300/70 font-mono">Alternaria solani</p>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70">
+                    Upload a crop leaf specimen on the left and click <strong>Analyze Crop</strong> to trigger computer vision foliar diagnostics and treatment guidance.
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 self-start sm:self-center">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-[#fffbeb] dark:bg-amber-950/50 border border-[#f59e0b] dark:border-amber-600/60 text-[#92400e] dark:text-amber-300 text-label-md font-bold flex items-center gap-1.5 shadow-sm animate-pulse">
-                    <span className="material-symbols-outlined text-base" data-icon="warning">warning</span>
-                    <span>Possible disease detected</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Confidence & Severity Metrics Strip with Animated Meters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="p-4 rounded-2xl bg-[#ecfdf5] dark:bg-[#152a1d] border border-[#10b981]/30 dark:border-emerald-700/40 hover-lift">
-                  <div className="flex items-center justify-between">
-                    <span className="text-label-sm font-label-sm font-semibold text-[#065f46] dark:text-emerald-300">Prediction Confidence</span>
-                    <span className="text-xs font-bold text-primary dark:text-primary-fixed bg-white dark:bg-[#0f1f15] px-2 py-0.5 rounded-md border border-primary/20 dark:border-emerald-700/40">Vision Classifier</span>
+                <div className="grid grid-cols-2 gap-3 max-w-xs mx-auto pt-2">
+                  <div className="p-3 rounded-xl bg-[#f4f7f4] dark:bg-[#14261b] border border-outline-variant/20 dark:border-emerald-800/30 text-left">
+                    <span className="text-[11px] text-on-surface-variant dark:text-emerald-300/70 block">Confidence</span>
+                    <span className="font-mono text-sm font-bold text-on-surface-variant dark:text-emerald-300/50">--%</span>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-headline-lg font-headline-lg font-extrabold text-primary dark:text-primary-fixed">91%</span>
-                    <span className="text-xs font-semibold text-[#065f46] dark:text-emerald-300">AI Prediction Confidence</span>
-                  </div>
-                  <div className="w-full bg-white dark:bg-[#0c1811] h-2.5 rounded-full mt-2.5 overflow-hidden border border-primary/10 dark:border-emerald-800/30">
-                    <div className="bg-gradient-to-r from-emerald-500 to-primary-container h-full rounded-full transition-all duration-1000" style={{ width: '91%' }}></div>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl bg-[#fffbeb] dark:bg-amber-950/30 border border-[#f59e0b]/40 dark:border-amber-700/40 hover-lift">
-                  <div className="flex items-center justify-between">
-                    <span className="text-label-sm font-label-sm font-semibold text-[#92400e] dark:text-amber-300">Severity Stage</span>
-                    <span className="text-xs font-bold text-[#92400e] dark:text-amber-300 bg-white dark:bg-[#1a1103] px-2 py-0.5 rounded-md border border-[#f59e0b]/40 dark:border-amber-700/50">Foliar Lesions</span>
-                  </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-headline-lg font-headline-lg font-extrabold text-[#b45309] dark:text-amber-400">Moderate</span>
-                    <span className="text-xs font-semibold text-[#92400e] dark:text-amber-300">Isolated chlorosis</span>
-                  </div>
-                  <div className="w-full bg-white dark:bg-[#1a1103] h-2.5 rounded-full mt-2.5 overflow-hidden border border-amber-200 dark:border-amber-800/40">
-                    <div className="bg-gradient-to-r from-amber-400 to-amber-600 h-full rounded-full transition-all duration-1000" style={{ width: '55%' }}></div>
+                  <div className="p-3 rounded-xl bg-[#f4f7f4] dark:bg-[#14261b] border border-outline-variant/20 dark:border-emerald-800/30 text-left">
+                    <span className="text-[11px] text-on-surface-variant dark:text-emerald-300/70 block">Severity</span>
+                    <span className="font-mono text-sm font-bold text-on-surface-variant dark:text-emerald-300/50">--</span>
                   </div>
                 </div>
               </div>
-
-              {/* Recommended Precautions List with Hover Glow */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#f4f7f4] dark:bg-[#15271c] border border-[#14532d]/10 dark:border-emerald-800/30 space-y-3">
-                <h4 className="text-label-md font-label-md font-bold text-on-surface dark:text-[#ecfdf5] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-lg" data-icon="checklist">checklist</span>
-                  <span>Recommended Precautions</span>
-                </h4>
-                <ul className="space-y-2.5 text-body-sm font-body-sm text-on-surface dark:text-emerald-100">
-                  {[
-                    { title: 'Remove visibly affected leaves:', desc: 'Snip infected lower foliage and dispose off-field to reduce fungal inoculum.' },
-                    { title: 'Avoid unnecessary overhead watering:', desc: 'Wet leaves exacerbate spore propagation; use base drip irrigation.' },
-                    { title: 'Monitor nearby plants:', desc: 'Inspect adjacent tomato and solanaceous beds for recurring concentric spots.' },
-                    { title: 'Consult local agricultural guidance:', desc: 'Verify with an agronomic extension specialist before chemical application.' }
-                  ].map((p, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 group/item">
-                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-base mt-0.5 flex-shrink-0 group-hover/item:scale-125 transition-transform" data-icon="check_circle">check_circle</span>
-                      <span><strong>{p.title}</strong> {p.desc}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            )}
 
             {/* Result Card Footer & Actions */}
             <div className="space-y-3 pt-2">
@@ -462,26 +566,38 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
                   type="button"
                 >
                   <span className="material-symbols-outlined text-base" data-icon="add_photo_alternate">add_photo_alternate</span>
-                  <span>Analyze Another Image</span>
+                  <span>{studioImage ? "Analyze Another Image" : "Upload Leaf Photo"}</span>
                 </button>
-                <button
-                  className="py-3 px-4 rounded-xl border border-primary dark:border-emerald-600 text-primary dark:text-primary-fixed font-label-md hover:bg-surface-container dark:hover:bg-[#162c1e] flex items-center gap-1.5 transition-all active:scale-95"
-                  onClick={() => onNavigate('AI Farmer Assistant')}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-base" data-icon="chat">chat</span>
-                  <span>Ask AI Assistant Prototype</span>
-                </button>
-                <button
-                  className="py-3 px-4 rounded-xl bg-white dark:bg-[#162a1e] border border-outline-variant/40 dark:border-emerald-700/40 text-on-surface-variant dark:text-emerald-200 hover:text-primary dark:hover:text-primary-fixed font-label-md flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                  onClick={handleSaveDemoScan}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-base" data-icon={savedScanToast ? "check" : "save"}>
-                    {savedScanToast ? "check" : "save"}
-                  </span>
-                  <span>{savedScanToast ? "Scan Saved!" : "Save Demo Scan"}</span>
-                </button>
+                {studioResult && (
+                  <>
+                    <button
+                      className="py-3 px-4 rounded-xl bg-primary hover:bg-[#14532d] text-white font-label-md flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
+                      onClick={() => onShowResult && onShowResult(studioResult)}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-base" data-icon="visibility">visibility</span>
+                      <span>Full Diagnostic Report</span>
+                    </button>
+                    <button
+                      className="py-3 px-4 rounded-xl border border-primary dark:border-emerald-600 text-primary dark:text-primary-fixed font-label-md hover:bg-surface-container dark:hover:bg-[#162c1e] flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                      onClick={() => onNavigate('AI Farmer Assistant')}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-base" data-icon="chat">chat</span>
+                      <span>Ask AI Assistant</span>
+                    </button>
+                    <button
+                      className="py-3 px-4 rounded-xl bg-white dark:bg-[#162a1e] border border-outline-variant/40 dark:border-emerald-700/40 text-on-surface-variant dark:text-emerald-200 hover:text-primary dark:hover:text-primary-fixed font-label-md flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+                      onClick={handleSaveDemoScan}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-base" data-icon={savedScanToast ? "check" : "save"}>
+                        {savedScanToast ? "check" : "save"}
+                      </span>
+                      <span>{savedScanToast ? "Scan Saved!" : "Save Scan"}</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Clear Mandatory Disclaimer */}
@@ -497,7 +613,13 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
       {/* HONEST HACKATHON DASHBOARD METRICS WITH HOVER-LIFT */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="farm-stats-section">
         {[
-          { label: 'Demo Test Cases', value: '3 Test Cases', sub: 'Early Blight, Corn Canopy, Late Blight', badge: 'Demo Dataset', isGreen: true },
+          {
+            label: 'Total Scans Executed',
+            value: `${totalScans} ${totalScans === 1 ? 'Scan' : 'Scans'}`,
+            sub: totalScans > 0 ? 'Telemetry actively recorded' : 'No scans executed yet',
+            badge: totalScans > 0 ? 'Live Telemetry' : 'Zero State',
+            isGreen: true
+          },
           { label: 'Target Crop Support', value: 'Tomato, Potato, Corn', sub: 'Extensible model architecture', icon: 'forest' },
           { label: 'Inference Status', value: 'Ready', sub: 'Pipeline operational', badge: 'Benchmarked', isBlue: true },
           { label: 'Backend Status', value: 'POST /api/predict', sub: 'Mock schema compliant', badge: 'REST Ready', isGreen: true, isMono: true }
@@ -584,79 +706,101 @@ export default function DashboardTab({ onNavigate, onLaunchPrompt, onShowResult 
         </div>
       </div>
 
-      {/* DEMONSTRATION SCAN RECORDS WITH THUMBNAIL ZOOM */}
+      {/* RECENT SCAN RECORDS (TELEMETRY) */}
       <div className="bg-surface-container-lowest dark:bg-[#112117] rounded-3xl p-6 sm:p-8 border border-[#14532d]/10 dark:border-emerald-800/30 shadow-sm space-y-5 transition-colors duration-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-headline-sm font-headline-sm font-bold text-on-surface dark:text-[#ecfdf5]">Demonstration Scan Records (Sample Validation Set)</h3>
-            <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70">Archived test cases representing model inference evaluation classes</p>
+            <h3 className="text-headline-sm font-headline-sm font-bold text-on-surface dark:text-[#ecfdf5]">Recent Scan Records</h3>
+            <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70">Recent crop inspection telemetry and AI classification logs</p>
           </div>
           <button
             className="text-label-md font-label-md text-primary dark:text-primary-fixed hover:underline font-semibold hover:translate-x-0.5 transition-transform"
             onClick={() => onNavigate('Scan History')}
           >
-            View All Samples →
+            View Scan History →
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {SAMPLE_SCANS.map((scan) => (
-            <div
-              key={scan.id}
-              className="p-4 rounded-2xl bg-[#f4f7f4] dark:bg-[#15271c] border border-[#14532d]/10 dark:border-emerald-800/30 hover-lift cursor-pointer group"
-              onClick={onShowResult}
-            >
-              <div className="flex gap-3.5">
-                <div className="overflow-hidden rounded-xl w-16 h-16 flex-shrink-0 border border-outline-variant/30 dark:border-emerald-800/40">
-                  {scan.image ? (
-                    <img
-                      alt={scan.condition}
-                      className="w-full h-full object-cover group-hover:scale-115 transition-transform duration-500"
-                      src={scan.image}
-                    />
-                  ) : scan.isLeafIcon ? (
-                    <div className="w-full h-full bg-surface-container dark:bg-[#183424] flex items-center justify-center text-primary dark:text-primary-fixed">
-                      <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform" data-icon="energy_savings_leaf">energy_savings_leaf</span>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full bg-[#fef2f2] dark:bg-red-950/30 flex items-center justify-center text-error dark:text-red-400">
-                      <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform" data-icon="pest_control">pest_control</span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1 flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-label-sm font-label-sm text-on-surface-variant dark:text-emerald-300/70">Test Sample #{scan.id}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        scan.badgeType === 'warning'
-                          ? 'bg-[#fffbeb] dark:bg-amber-950/50 text-[#92400e] dark:text-amber-300 border border-[#f59e0b] dark:border-amber-600/50'
-                          : scan.badgeType === 'success'
-                          ? 'bg-[#ecfdf5] dark:bg-emerald-950/70 text-[#065f46] dark:text-emerald-300 border border-[#10b981] dark:border-emerald-700/50'
-                          : 'bg-[#fef2f2] dark:bg-red-950/40 text-[#991b1b] dark:text-red-300 border border-[#ef4444] dark:border-red-700/50'
-                      }`}
-                    >
-                      {scan.badge}
-                    </span>
-                  </div>
-                  <p className="text-label-lg font-label-lg font-bold text-on-surface dark:text-[#ecfdf5] group-hover:text-primary dark:group-hover:text-primary-fixed transition-colors truncate">{scan.condition}</p>
-                  <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70 text-xs truncate">{scan.subtext}</p>
-                </div>
-              </div>
-              <div className="mt-3 pt-2.5 border-t border-[#14532d]/10 dark:border-emerald-900/30 flex items-center justify-between text-label-sm font-label-sm">
-                <span className={`${scan.badgeType === 'error' ? 'text-error dark:text-red-400' : 'text-primary dark:text-primary-fixed'} font-bold`}>
-                  {scan.confidence} Confidence
-                </span>
-                <span className="text-on-surface-variant dark:text-emerald-200/80 flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
-                  {scan.badgeType === 'warning' ? 'Inspect' : scan.badgeType === 'success' ? 'Healthy Leaf' : 'Details'}
-                  {scan.badgeType !== 'success' && (
-                    <span className="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
-                  )}
-                </span>
-              </div>
+        {recentScans.length === 0 ? (
+          <div className="p-8 sm:p-10 rounded-2xl bg-[#f4f7f4] dark:bg-[#15271c] border border-dashed border-[#14532d]/20 dark:border-emerald-800/40 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-primary dark:text-primary-fixed flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-2xl" data-icon="inventory_2">inventory_2</span>
             </div>
-          ))}
-        </div>
+            <div className="space-y-1">
+              <p className="text-label-lg font-bold text-on-surface dark:text-[#ecfdf5]">No Recent Scans Found</p>
+              <p className="text-body-sm text-on-surface-variant dark:text-emerald-200/70 max-w-md mx-auto">
+                You haven't scanned any crop specimens yet. Upload a leaf photo in the studio above to log your first diagnostic entry.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={scrollToDetectionStudio}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-label-sm font-semibold hover:bg-[#14532d] transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="upload">upload</span>
+              <span>Scan First Specimen</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recentScans.map((scan) => (
+              <div
+                key={scan.id}
+                className="p-4 rounded-2xl bg-[#f4f7f4] dark:bg-[#15271c] border border-[#14532d]/10 dark:border-emerald-800/30 hover-lift cursor-pointer group"
+                onClick={() => onShowResult && onShowResult(scan)}
+              >
+                <div className="flex gap-3.5">
+                  <div className="overflow-hidden rounded-xl w-16 h-16 flex-shrink-0 border border-outline-variant/30 dark:border-emerald-800/40">
+                    {scan.image ? (
+                      <img
+                        alt={scan.condition || scan.prediction}
+                        className="w-full h-full object-cover group-hover:scale-115 transition-transform duration-500"
+                        src={scan.image}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-surface-container dark:bg-[#183424] flex items-center justify-center text-primary dark:text-primary-fixed">
+                        <span className="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform" data-icon="energy_savings_leaf">energy_savings_leaf</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-label-sm font-label-sm text-on-surface-variant dark:text-emerald-300/70">Scan #{scan.id}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          scan.badgeType === 'warning'
+                            ? 'bg-[#fffbeb] dark:bg-amber-950/50 text-[#92400e] dark:text-amber-300 border border-[#f59e0b] dark:border-amber-600/50'
+                            : scan.badgeType === 'success'
+                            ? 'bg-[#ecfdf5] dark:bg-emerald-950/70 text-[#065f46] dark:text-emerald-300 border border-[#10b981] dark:border-emerald-700/50'
+                            : 'bg-[#fef2f2] dark:bg-red-950/40 text-[#991b1b] dark:text-red-300 border border-[#ef4444] dark:border-red-700/50'
+                        }`}
+                      >
+                        {scan.badge || scan.severity || "Inspected"}
+                      </span>
+                    </div>
+                    <p className="text-label-lg font-label-lg font-bold text-on-surface dark:text-[#ecfdf5] group-hover:text-primary dark:group-hover:text-primary-fixed transition-colors truncate">
+                      {scan.condition || scan.prediction}
+                    </p>
+                    <p className="text-body-sm font-body-sm text-on-surface-variant dark:text-emerald-200/70 text-xs truncate">
+                      {scan.crop ? `${scan.crop.charAt(0).toUpperCase() + scan.crop.slice(1)} Specimen` : (scan.subtext || "Crop Specimen")}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-[#14532d]/10 dark:border-emerald-900/30 flex items-center justify-between text-label-sm font-label-sm">
+                  <span className={`${scan.badgeType === 'error' ? 'text-error dark:text-red-400' : 'text-primary dark:text-primary-fixed'} font-bold`}>
+                    {scan.confidence || "92%"} Confidence
+                  </span>
+                  <span className="text-on-surface-variant dark:text-emerald-200/80 flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                    {scan.badgeType === 'warning' ? 'Inspect' : scan.badgeType === 'success' ? 'Healthy Leaf' : 'Details'}
+                    {scan.badgeType !== 'success' && (
+                      <span className="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

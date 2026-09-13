@@ -9,12 +9,57 @@ export default function ResultTab({ scanResult, onNavigate }) {
     setTimeout(() => setSavedScanToast(false), 3000);
   };
 
-  // Active data source: passed scanResult or default fallback
-  const diseaseName = scanResult?.prediction || "Tomato Early Blight";
-  const cropName = scanResult?.crop || "Tomato";
-  const pathogenName = scanResult?.pathogen || "Alternaria solani";
+  if (!scanResult) {
+    return (
+      <section className="tab-content space-y-6 animate-fade-in-up" id="tab-Disease-Result">
+        {/* Breadcrumb navigation back */}
+        <div className="flex items-center justify-between">
+          <button
+            className="inline-flex items-center gap-1.5 text-label-md font-label-md text-primary dark:text-primary-fixed hover:underline group"
+            onClick={() => onNavigate('Dashboard')}
+            type="button"
+          >
+            <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform" data-icon="arrow_back">arrow_back</span>
+            <span>Back to Dashboard</span>
+          </button>
+        </div>
+
+        {/* Empty State Card */}
+        <div className="bg-surface-container-lowest dark:bg-[#112117] rounded-3xl p-8 sm:p-12 border border-[#14532d]/15 dark:border-emerald-800/30 shadow-md text-center max-w-2xl mx-auto space-y-6 transition-all">
+          <div className="w-20 h-20 rounded-3xl bg-emerald-100 dark:bg-emerald-950/60 text-primary dark:text-primary-fixed flex items-center justify-center mx-auto shadow-inner ring-8 ring-emerald-50 dark:ring-emerald-900/20">
+            <span className="material-symbols-outlined text-4xl animate-pulse" data-icon="biotech">biotech</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-headline-md font-headline-md font-extrabold text-on-surface dark:text-[#ecfdf5]">
+              No Diagnostic Scan Executed
+            </h2>
+            <p className="text-body-md font-body-md text-on-surface-variant dark:text-emerald-200/80 max-w-md mx-auto">
+              You haven't run any foliar disease detection yet. Upload a crop leaf photo to view detailed AI predictions, severity analysis, and mitigation steps.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => onNavigate('Disease Detection')}
+              type="button"
+              className="hover-lift active:scale-95 inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-primary-container to-[#14532d] hover:from-[#14532d] hover:to-[#0f3d21] text-white font-label-lg shadow-lg hover:shadow-xl transition-all"
+            >
+              <span className="material-symbols-outlined text-xl" data-icon="add_a_photo">add_a_photo</span>
+              <span>Launch Disease Detection</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Active data source: passed scanResult
+  const diseaseName = scanResult?.prediction || "Detected Foliar Anomaly";
+  const cropName = scanResult?.crop || "Crop";
+  const pathogenName = scanResult?.pathogen || "Pathogen";
   const severityLevel = scanResult?.severity || "Moderate";
-  const confidenceScore = scanResult?.confidence_percentage || (scanResult?.confidence ? `${int(scanResult.confidence * 100)}%` : "91%");
+  const confidenceScore = scanResult?.confidence_percentage || (scanResult?.confidence ? `${Math.round(scanResult.confidence * 100)}%` : "91%");
   const confidenceNum = Math.round((scanResult?.confidence || 0.91) * 100);
   const imageSrc = scanResult?.image || DEFAULT_LEAF_IMAGE;
   const precautions = scanResult?.precautions || [
