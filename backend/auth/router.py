@@ -121,7 +121,22 @@ def update_profile(
         current_user.phone = profile_data.phone.strip()
     if profile_data.bio is not None:
         current_user.bio = profile_data.bio.strip()
+    if profile_data.total_scans is not None:
+        current_user.total_scans = max(current_user.total_scans or 0, profile_data.total_scans)
 
+    db.commit()
+    db.refresh(current_user)
+    return UserResponse.model_validate(current_user)
+
+@router.post("/increment-scans", response_model=UserResponse)
+def increment_scans(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Increments total_scans count for the authenticated user and persists to database.
+    """
+    current_user.total_scans = (current_user.total_scans or 0) + 1
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)

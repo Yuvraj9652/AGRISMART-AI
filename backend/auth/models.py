@@ -16,12 +16,13 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)  # Nullable for Google-only users
     google_sub = Column(String(255), unique=True, index=True, nullable=True)  # Google OAuth sub identifier
     auth_provider = Column(String(50), nullable=False, default="local")  # "local", "google", or "google_local"
-    role = Column(String(100), nullable=False, default="Agronomist")
-    farm_name = Column(String(255), nullable=False, default="AgriSmart Experimental Farm")
-    location = Column(String(255), nullable=True, default="Greenhouse 4B, Sector 7")
-    phone = Column(String(50), nullable=True, default="+91 98765 43210")
-    bio = Column(Text, nullable=True, default="Agricultural AI evaluator testing computer vision foliar diagnostics.")
+    role = Column(String(100), nullable=True, default="")
+    farm_name = Column(String(255), nullable=True, default="")
+    location = Column(String(255), nullable=True, default="")
+    phone = Column(String(50), nullable=True, default="")
+    bio = Column(Text, nullable=True, default="")
     is_active = Column(Boolean, default=True, nullable=False)
+    total_scans = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

@@ -26,11 +26,12 @@ class UserResponse(BaseModel):
     name: str
     auth_provider: str
     google_sub: Optional[str] = None
-    role: str
-    farm_name: str
-    location: Optional[str] = None
-    phone: Optional[str] = None
-    bio: Optional[str] = None
+    role: Optional[str] = ""
+    farm_name: Optional[str] = ""
+    location: Optional[str] = ""
+    phone: Optional[str] = ""
+    bio: Optional[str] = ""
+    total_scans: int = 0
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -50,3 +51,4 @@ class UpdateProfileRequest(BaseModel):
     location: Optional[str] = None
     phone: Optional[str] = None
     bio: Optional[str] = None
+    total_scans: Optional[int] = None
