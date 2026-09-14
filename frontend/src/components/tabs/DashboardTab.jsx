@@ -603,7 +603,7 @@ export default function DashboardTab({ user, onNavigate, onLaunchPrompt, onShowR
               {/* Clear Mandatory Disclaimer */}
               <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-700/50 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2 leading-relaxed">
                 <span className="material-symbols-outlined text-amber-700 dark:text-amber-400 text-base mt-0.5 flex-shrink-0 animate-bounce" data-icon="info">info</span>
-                <span><strong>⚠️ AI-generated prediction:</strong> Results should be verified with appropriate agricultural expertise before treatment decisions.</span>
+                <span><strong>AI-generated prediction:</strong> Results should be verified with appropriate agricultural expertise before treatment decisions.</span>
               </div>
             </div>
           </div>

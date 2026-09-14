@@ -211,7 +211,25 @@ export async function recommendCrops(payload) {
 
     return await response.json();
   } catch (err) {
-    console.error("API Crop Recommend error:", err);
+    console.error("API Crop recommendation error:", err);
+    throw err;
+  }
+}
+
+export async function getCropMetrics() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/recommend/metrics`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch crop recommendation metrics (${response.status})`);
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.error("API Crop Metrics error:", err);
     throw err;
   }
 }
@@ -231,6 +249,24 @@ export async function evaluateIrrigation(payload) {
     return await response.json();
   } catch (err) {
     console.error("API Smart Irrigation error:", err);
+    throw err;
+  }
+}
+
+export async function getIrrigationMetrics() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/irrigation/metrics`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch irrigation metrics (${response.status})`);
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.error("API Irrigation Metrics error:", err);
     throw err;
   }
 }

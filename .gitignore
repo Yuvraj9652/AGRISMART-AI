@@ -39,9 +39,12 @@ dataset/*.zip
 *.tar.gz
 *.7z
 
+# External Repositories / Large Image Datasets
+dataset/PlantDoc-Dataset/
+dataset/PlantVillage/
+
 # IDE / OS Files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-dataset/

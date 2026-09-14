@@ -1,0 +1,231 @@
+{
+  "trained_at": "2026-09-14 19:26:47",
+  "champion_classifier": "Gradient Boosting Classifier",
+  "champion_regressor": "Random Forest Regressor",
+  "dataset_records": 5200,
+  "train_samples": 4160,
+  "test_samples": 1040,
+  "classifier_benchmarks": {
+    "Random Forest Classifier": {
+      "accuracy": 0.9317,
+      "macro_f1": 0.9347,
+      "macro_precision": 0.929,
+      "macro_recall": 0.9419,
+      "cv_f1_mean": 0.9243,
+      "fit_time_seconds": 0.328
+    },
+    "Gradient Boosting Classifier": {
+      "accuracy": 0.9971,
+      "macro_f1": 0.997,
+      "macro_precision": 0.9977,
+      "macro_recall": 0.9963,
+      "cv_f1_mean": 0.9977,
+      "fit_time_seconds": 8.344
+    },
+    "Extra Trees Classifier": {
+      "accuracy": 0.8067,
+      "macro_f1": 0.8349,
+      "macro_precision": 0.8315,
+      "macro_recall": 0.8427,
+      "cv_f1_mean": 0.8544,
+      "fit_time_seconds": 0.259
+    },
+    "Logistic Regression (Baseline)": {
+      "accuracy": 0.9404,
+      "macro_f1": 0.9433,
+      "macro_precision": 0.9458,
+      "macro_recall": 0.942,
+      "cv_f1_mean": 0.939,
+      "fit_time_seconds": 0.174
+    }
+  },
+  "regressor_benchmarks": {
+    "Random Forest Regressor": {
+      "r2_score": 0.9275,
+      "mae_mm": 0.2341,
+      "rmse_mm": 0.5583,
+      "fit_time_seconds": 0.66
+    },
+    "Gradient Boosting Regressor": {
+      "r2_score": 0.9258,
+      "mae_mm": 0.3808,
+      "rmse_mm": 0.5647,
+      "fit_time_seconds": 1.569
+    },
+    "Ridge Regression (Baseline)": {
+      "r2_score": 0.6016,
+      "mae_mm": 1.0463,
+      "rmse_mm": 1.3089,
+      "fit_time_seconds": 0.028
+    }
+  },
+  "champion_classifier_metrics": {
+    "macro_f1": 0.997,
+    "accuracy": 0.9971,
+    "precision": 0.9977,
+    "recall": 0.9963
+  },
+  "champion_regressor_metrics": {
+    "r2_score": 0.9275,
+    "mae_mm": 0.2341,
+    "rmse_mm": 0.5583
+  },
+  "confusion_matrix": {
+    "classes": [
+      "DELAY_RAIN_EXPECTED",
+      "IRRIGATE_IMMEDIATELY",
+      "MAINTENANCE_DRIP",
+      "OPTIMAL_STANDBY",
+      "SUSPEND_OVERHEAD_BLIGHT"
+    ],
+    "matrix": [
+      [
+        160,
+        0,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        283,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        253,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        274,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        67
+      ]
+    ]
+  },
+  "classification_report": {
+    "DELAY_RAIN_EXPECTED": {
+      "precision": 1.0,
+      "recall": 0.9815950920245399,
+      "f1-score": 0.9907120743034056,
+      "support": 163.0
+    },
+    "IRRIGATE_IMMEDIATELY": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 283.0
+    },
+    "MAINTENANCE_DRIP": {
+      "precision": 0.98828125,
+      "recall": 1.0,
+      "f1-score": 0.9941060903732809,
+      "support": 253.0
+    },
+    "OPTIMAL_STANDBY": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 274.0
+    },
+    "SUSPEND_OVERHEAD_BLIGHT": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 67.0
+    },
+    "accuracy": 0.9971153846153846,
+    "macro avg": {
+      "precision": 0.99765625,
+      "recall": 0.9963190184049079,
+      "f1-score": 0.9969636329353373,
+      "support": 1040.0
+    },
+    "weighted avg": {
+      "precision": 0.997149188701923,
+      "recall": 0.9971153846153846,
+      "f1-score": 0.9971104893998992,
+      "support": 1040.0
+    }
+  },
+  "classifier_feature_importances": {
+    "soil_moisture": 39.19,
+    "effective_precipitation_peff": 18.36,
+    "soil_field_capacity": 11.52,
+    "disease_context": 10.48,
+    "soil_wilting_point": 7.94,
+    "soil_type": 5.82,
+    "irrigation_method": 3.38,
+    "forecast_rainfall_mm": 2.91,
+    "crop_etc": 0.09,
+    "crop_type": 0.09,
+    "temperature": 0.08,
+    "humidity": 0.04,
+    "rain_forecast": 0.04,
+    "reference_et0": 0.03,
+    "crop_kc": 0.01,
+    "growth_stage": 0.01
+  },
+  "regressor_feature_importances": {
+    "soil_moisture": 37.53,
+    "crop_etc": 18.48,
+    "soil_field_capacity": 8.05,
+    "soil_wilting_point": 7.97,
+    "effective_precipitation_peff": 7.02,
+    "forecast_rainfall_mm": 5.7,
+    "disease_context": 4.86,
+    "soil_type": 4.56,
+    "irrigation_method": 2.59,
+    "temperature": 0.71,
+    "humidity": 0.56,
+    "reference_et0": 0.51,
+    "crop_type": 0.51,
+    "crop_kc": 0.33,
+    "growth_stage": 0.31,
+    "rain_forecast": 0.3
+  },
+  "numerical_features": [
+    "soil_moisture",
+    "temperature",
+    "humidity",
+    "forecast_rainfall_mm",
+    "crop_kc",
+    "reference_et0",
+    "crop_etc",
+    "effective_precipitation_peff",
+    "soil_field_capacity",
+    "soil_wilting_point"
+  ],
+  "categorical_features": [
+    "crop_type",
+    "growth_stage",
+    "soil_type",
+    "rain_forecast",
+    "irrigation_method",
+    "disease_context"
+  ],
+  "supported_crops": [
+    "Tomato",
+    "Potato",
+    "Pepper Bell",
+    "Corn",
+    "Wheat",
+    "Cotton",
+    "Soybean",
+    "Rice",
+    "Sugarcane"
+  ]
+}

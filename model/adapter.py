@@ -78,18 +78,45 @@ class CropDiseaseModelAdapter:
             return
 
         try:
-            logger.info(f"Loading ResNet50 model from: {self.weights_path}")
-            model = models.resnet50(weights=None)
-            model.fc = nn.Linear(model.fc.in_features, self.num_classes)
-
+            logger.info(f"Loading model checkpoint from: {self.weights_path}")
             checkpoint = torch.load(self.weights_path, map_location=self.device)
             
+            # Extract state dict
             if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
-                model.load_state_dict(checkpoint["model_state_dict"])
+                state_dict = checkpoint["model_state_dict"]
             elif isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-                model.load_state_dict(checkpoint["state_dict"])
+                state_dict = checkpoint["state_dict"]
             elif isinstance(checkpoint, dict):
-                model.load_state_dict(checkpoint)
+                state_dict = checkpoint
+            else:
+                state_dict = None
+
+            # Detect architecture from weights_path or state_dict keys
+            fname = os.path.basename(self.weights_path).lower()
+            if "efficientnet" in fname or (state_dict and any("features.0.0" in k for k in state_dict.keys())):
+                logger.info("Auto-detected EfficientNet-B3 architecture.")
+                model = models.efficientnet_b3(weights=None)
+                in_features = model.classifier[1].in_features
+                model.classifier = nn.Sequential(
+                    nn.Dropout(p=0.35, inplace=True),
+                    nn.Linear(in_features, 512),
+                    nn.SiLU(inplace=True),
+                    nn.BatchNorm1d(512),
+                    nn.Dropout(p=0.25, inplace=True),
+                    nn.Linear(512, self.num_classes)
+                )
+            elif "mobilenet" in fname or (state_dict and any("classifier.3" in k for k in state_dict.keys())):
+                logger.info("Auto-detected MobileNetV3-Large architecture.")
+                model = models.mobilenet_v3_large(weights=None)
+                in_features = model.classifier[3].in_features
+                model.classifier[3] = nn.Linear(in_features, self.num_classes)
+            else:
+                logger.info("Detected standard ResNet50 architecture.")
+                model = models.resnet50(weights=None)
+                model.fc = nn.Linear(model.fc.in_features, self.num_classes)
+
+            if state_dict is not None:
+                model.load_state_dict(state_dict)
             else:
                 model = checkpoint
 
@@ -99,7 +126,7 @@ class CropDiseaseModelAdapter:
             self.model = model
             self.is_loaded = True
             self.load_error = None
-            logger.info("ResNet50 model checkpoint loaded successfully.")
+            logger.info(f"Model checkpoint loaded successfully ({model.__class__.__name__}).")
 
         except Exception as e:
             self.load_error = f"Failed to load checkpoint: {str(e)}"

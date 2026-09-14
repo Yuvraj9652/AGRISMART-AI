@@ -205,7 +205,7 @@ export default function ResultTab({ scanResult, onNavigate }) {
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 flex items-start gap-3 shadow-sm">
             <span className="material-symbols-outlined text-amber-800 dark:text-amber-400 text-lg mt-0.5 flex-shrink-0 animate-bounce" data-icon="warning">warning</span>
             <p className="text-label-sm font-label-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-              <strong>Disclaimer:</strong> {scanResult?.disclaimer || "⚠️ AI-generated prediction. Results should be verified with appropriate agricultural expertise before treatment decisions."}
+              <strong>Disclaimer:</strong> {scanResult?.disclaimer || "AI-generated prediction. Results should be verified with appropriate agricultural expertise before treatment decisions."}
             </p>
           </div>
         </div>
