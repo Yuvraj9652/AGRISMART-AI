@@ -28,6 +28,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 MODEL_PATH = os.path.join(BASE_DIR, "model", "weights", "crop_classifier.joblib")
 METADATA_PATH = os.path.join(BASE_DIR, "model", "weights", "crop_metadata.json")
 
+import numpy as np
+if not hasattr(np, "long"):
+    np.long = np.int64
+
 ml_crop_model = None
 ml_crop_metadata = None
 

@@ -76,12 +76,13 @@ def farmer_assistant(req: AssistantRequest):
         except Exception:
             pass
 
-    # Explicit service unavailable state when GenAI API key is missing
+    # 3. Grounded agronomic advisory fallback engine
+    reply_text, subtext = generate_agronomic_reply(user_msg, crop, disease, confidence)
     return AssistantResponse(
-        status="service_unavailable",
-        reply="GenAI Assistant unavailable: GEMINI_API_KEY or OPENAI_API_KEY is not configured in backend environment.",
-        subtext="GenAI Integration Boundary: Configure GEMINI_API_KEY in .env for live AI conversational answers.",
-        source="GenAI Integration Boundary",
+        status="success",
+        reply=reply_text,
+        subtext=f"Grounded AgriSmart Advisor ({subtext})",
+        source="AgriSmart Agronomic Knowledge Engine",
         suggested_prompts=get_suggested_prompts(user_msg)
     )
 

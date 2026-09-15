@@ -4,6 +4,10 @@
 
 ---
 
+## Demo Video Link
+
+https://drive.google.com/drive/folders/1WT5QuL98BByAuU9dCPRbX4er7_6H02qy?usp=sharing
+
 ## 📌 1. Project Overview & Scope
 
 **AGRISMART-AI** is an AI-powered agricultural advisory platform designed for farmers, agronomists, and agricultural stakeholders. The platform combines Computer Vision foliar pathology detection, explainable crop cultivar recommendation, smart irrigation control, grounded GenAI conversational advisory, and server-side JWT / Google OAuth authentication.

@@ -29,6 +29,11 @@ ml_classifier = None
 ml_regressor = None
 ml_metadata = {}
 
+if not hasattr(np, "long"):
+    np.long = np.int64
+if not hasattr(np, "ulong"):
+    np.ulong = np.uint64
+
 try:
     if os.path.exists(CLF_WEIGHTS) and os.path.exists(REG_WEIGHTS):
         ml_classifier = joblib.load(CLF_WEIGHTS)
