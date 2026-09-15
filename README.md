@@ -59,20 +59,20 @@ SQLite Database (SQLAlchemy)
 Create a `.env` file in the project root directory (copied from `.env.example`):
 
 ```env
-GOOGLE_CLIENT_ID=794206114572-o0espebqkcgrs9cjpjvh9msb4u32nh0t.apps.googleusercontent.com
-JWT_SECRET_KEY=agrismart_super_secret_jwt_key_sih_2026_demo
-DATABASE_URL=sqlite:///./agrismart.db
-GEMINI_API_KEY=
-OPENAI_API_KEY=
+GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+JWT_SECRET_KEY=YOUR_JWT_SECRET_KEY
+DATABASE_URL=YOUR_DATABASE_URL
+GEMINI_API_KEY=YOUR_GEMINI_URL
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 ```
-*Note: If `JWT_SECRET_KEY` is omitted, the backend automatically generates a cryptographically secure 32-byte secret on startup.*
+
 
 ### Frontend `.env` Setup
 Create a `.env` file inside `frontend/`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
-VITE_GOOGLE_CLIENT_ID=794206114572-o0espebqkcgrs9cjpjvh9msb4u32nh0t.apps.googleusercontent.com
+VITE_GOOGLE_CLIENT_ID=YOUR_VITE_GOOGLE_CLIENT_ID
 ```
 
 ---
